@@ -13,12 +13,14 @@ import {
   Input,
 } from "@nextui-org/react";
 import { FiSearch, FiPlus } from "react-icons/fi";
-import useStore from "../store/useStore";
+
+import MedicalStatusFilter from "../components/MedicalStatusFilter";
+
+import { useFilterCases } from "../hooks/useFilterCases";
 import { caseService } from "../services/caseService";
 import { useSortTable } from "../hooks/useSortTable";
+import useStore from "../store/useStore";
 import { Case } from "../store/useStore";
-import useDebounce from "../hooks/useDebounce";
-import MedicalStatusFilter from "../components/MedicalStatusFilter";
 
 const PAGE_SIZE = 8;
 
@@ -35,10 +37,8 @@ const CaseList = () => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [searchTerm, setSearchTerm] = useState<string>("");
 
-  const navigate = useNavigate();
   const { cases, isLoading, setIsLoading } = useStore();
-
-  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const loadCases = async () => {
@@ -56,22 +56,11 @@ const CaseList = () => {
     loadCases();
   }, [setIsLoading]);
 
-  const filteredCases = useMemo(() => {
-    let result = [...cases];
-
-    if (debouncedSearchTerm.trim()) {
-      const query = debouncedSearchTerm.toLowerCase().trim();
-      result = result.filter((c) =>
-        c.client_name.toLowerCase().includes(query)
-      );
-    }
-
-    if (medicalStatusFilter !== "all") {
-      result = result.filter((c) => c.medical_status === medicalStatusFilter);
-    }
-
-    return result;
-  }, [cases, debouncedSearchTerm, medicalStatusFilter]);
+  const filteredCases = useFilterCases({
+    cases,
+    searchTerm,
+    medicalStatusFilter,
+  });
 
   const { sortedItems, sortDescriptor, setSortDescriptor } = useSortTable<Case>(
     {
@@ -96,35 +85,36 @@ const CaseList = () => {
     <div className="p-6">
       <div className="flex flex-col items-center">
         <div className="w-full max-w-6xl">
-          <h1 className="text-3xl font-semibold text-gray-800 mb-6">Clients</h1>
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-semibold text-gray-800">Clients</h1>
+            <div className="flex items-center gap-4">
+              <Input
+                placeholder="Search Clients"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                startContent={<FiSearch className="text-gray-400" />}
+                classNames={{
+                  base: "w-[240px]",
+                  inputWrapper:
+                    "border-1 border-gray-200 bg-white h-10 rounded-lg",
+                }}
+              />
+              <Button
+                className="bg-indigo-600 text-white h-10 rounded-lg px-4"
+                startContent={<FiPlus size={18} />}
+                onPress={() => navigate("/cases/new")}
+              >
+                Add Client
+              </Button>
+            </div>
+          </div>
 
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden p-6 mb-6">
-            <div className="flex justify-between items-center mb-6">
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden p-6">
+            <div className="mb-6">
               <MedicalStatusFilter
                 selectedStatus={medicalStatusFilter}
                 onStatusChange={setMedicalStatusFilter}
               />
-
-              <div className="flex items-center">
-                <Input
-                  placeholder="Search Clients"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  startContent={<FiSearch className="text-gray-400" />}
-                  classNames={{
-                    base: "w-72",
-                    inputWrapper:
-                      "border-1 border-gray-200 bg-white h-10 rounded-full",
-                  }}
-                />
-                <Button
-                  className="bg-indigo-500 text-white h-10 ml-4 rounded-full"
-                  startContent={<FiPlus size={18} />}
-                  onPress={() => navigate("/cases/new")}
-                >
-                  Add Client
-                </Button>
-              </div>
             </div>
 
             <Table
