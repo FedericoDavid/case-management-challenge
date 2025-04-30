@@ -37,7 +37,7 @@ const CaseCard: React.FC<CaseCardProps> = ({ caseItem }) => {
         <div className="flex flex-col gap-2">
           <div className="flex justify-between items-start">
             <h3 className="text-lg font-semibold truncate">
-              {caseItem.client_name}
+              #{caseItem.id} - {caseItem.client_name}
             </h3>
             <Chip
               color={getMedicalStatusColor(caseItem.medical_status)}

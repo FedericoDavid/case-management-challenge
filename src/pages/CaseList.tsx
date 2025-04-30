@@ -37,7 +37,7 @@ const CaseList = () => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [searchTerm, setSearchTerm] = useState<string>("");
 
-  const { cases, isLoading, setIsLoading } = useStore();
+  const { cases, isLoading, setIsLoading, setCases } = useStore();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -47,14 +47,14 @@ const CaseList = () => {
       try {
         const data = await caseService.fetchCases();
 
-        useStore.setState({ cases: data });
+        setCases(data);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadCases();
-  }, [setIsLoading]);
+  }, [setIsLoading, setCases]);
 
   const filteredCases = useFilterCases({
     cases,
@@ -125,7 +125,7 @@ const CaseList = () => {
                 wrapper: "shadow-none",
                 th: "bg-transparent text-default-500 font-medium border-b border-gray-200",
                 td: "py-3 text-sm",
-                tr: "hover:bg-gray-50 data-[odd=true]:bg-gray-50/50",
+                tr: "hover:bg-gray-50",
               }}
             >
               <TableHeader columns={tableColumns}>
@@ -145,17 +145,26 @@ const CaseList = () => {
                 emptyContent="No clients found"
                 loadingContent={<Spinner label="Loading..." />}
               >
-                {(item) => {
-                  const isFirstRow = item.id === "1";
+                {(item: Case) => {
+                  const index = paginatedItems.findIndex(
+                    (c) => c.id === item.id
+                  );
+                  const isReadyForAssignment =
+                    item.medical_status?.trim().toLowerCase() ===
+                    "ready for assignment".toLowerCase();
+                  const realIndex = (currentPage - 1) * PAGE_SIZE + index + 1;
+
                   return (
                     <TableRow
                       key={item.id}
-                      className={`cursor-pointer ${
-                        isFirstRow ? "bg-green-50" : ""
-                      }`}
                       onClick={() => handleRowClick(item.id)}
+                      className={`cursor-pointer ${
+                        isReadyForAssignment ? "bg-green-50 !important" : ""
+                      }`}
                     >
-                      <TableCell>{item.client_name}</TableCell>
+                      <TableCell className="font-semibold">
+                        {realIndex}. {item.client_name}
+                      </TableCell>
                       <TableCell>{item.doa}</TableCell>
                       <TableCell>{item.medical_status}</TableCell>
                       <TableCell>{item.case_status}</TableCell>

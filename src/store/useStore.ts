@@ -1,79 +1,93 @@
 import { create } from "zustand";
+import { persist, createJSONStorage, PersistOptions } from "zustand/middleware";
+
+export interface Expense {
+  id: string;
+  label: string;
+  amount: number;
+  deductedFrom: string;
+}
 
 export interface Case extends Record<string, unknown> {
   id: string;
   client_name: string;
+  date_of_birth: string;
   doa: string;
   medical_status: string;
   case_status: string;
   law_firm: string;
+  expenses: Expense[];
 }
 
-interface StoreState {
+interface CaseState {
   cases: Case[];
-  searchQuery: string;
   isLoading: boolean;
-  addCase: (newCase: Omit<Case, "id">) => void;
-  updateCase: (id: string, updatedCase: Partial<Case>) => void;
-  deleteCase: (id: string) => void;
-  setSearchQuery: (query: string) => void;
-  setIsLoading: (loading: boolean) => void;
-  filterCases: (medicalStatus: string | null) => Case[];
 }
 
-const useStore = create<StoreState>((set, get) => ({
-  cases: [],
-  searchQuery: "",
-  isLoading: false,
+interface CaseActions {
+  setCases: (cases: Case[]) => void;
+  setIsLoading: (loading: boolean) => void;
+  addExpense: (caseId: string, expense: Omit<Expense, "id">) => void;
+  removeExpenses: (caseId: string, expenseIds: string[]) => void;
+}
 
-  addCase: (newCase) =>
-    set((state) => {
-      const id = crypto.randomUUID();
-      const caseData: Omit<Case, "id"> = newCase;
-      return {
-        cases: [
-          ...state.cases,
-          {
-            ...caseData,
-            id,
-          } as Case,
-        ],
-      };
+type PersistedState = {
+  cases: Case[];
+};
+
+const persistConfig: PersistOptions<CaseState & CaseActions, PersistedState> = {
+  name: "case-management-storage",
+  storage: createJSONStorage(() => localStorage),
+  partialize: (state) => ({ cases: state.cases }),
+};
+
+const useStore = create<CaseState & CaseActions>()(
+  persist(
+    (set) => ({
+      cases: [],
+      isLoading: false,
+      setCases: (cases) => set({ cases }),
+      setIsLoading: (loading) => set({ isLoading: loading }),
+      addExpense: (caseId, expense) =>
+        set((state) => {
+          const newExpense = {
+            ...expense,
+            id: crypto.randomUUID(),
+          };
+
+          return {
+            cases: state.cases.map((c) =>
+              c.id === caseId
+                ? {
+                    ...c,
+                    expenses: Array.isArray(c.expenses)
+                      ? [...c.expenses, newExpense]
+                      : [newExpense],
+                  }
+                : c
+            ),
+          };
+        }),
+      removeExpenses: (caseId, expenseIds) =>
+        set((state) => {
+          return {
+            cases: state.cases.map((c) =>
+              c.id === caseId
+                ? {
+                    ...c,
+                    expenses: Array.isArray(c.expenses)
+                      ? c.expenses.filter(
+                          (expense) => !expenseIds.includes(expense.id)
+                        )
+                      : [],
+                  }
+                : c
+            ),
+          };
+        }),
     }),
-
-  updateCase: (id, updatedCase) =>
-    set((state) => ({
-      cases: state.cases.map((c) =>
-        c.id === id ? { ...c, ...updatedCase } : c
-      ),
-    })),
-
-  deleteCase: (id) =>
-    set((state) => ({
-      cases: state.cases.filter((c) => c.id !== id),
-    })),
-
-  setSearchQuery: (query) => set({ searchQuery: query }),
-
-  setIsLoading: (loading) => set({ isLoading: loading }),
-
-  filterCases: (medicalStatus) => {
-    const { cases, searchQuery } = get();
-    let filtered = [...cases];
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter((c) =>
-        c.client_name.toLowerCase().includes(query)
-      );
-    }
-
-    if (medicalStatus && medicalStatus !== "all") {
-      filtered = filtered.filter((c) => c.medical_status === medicalStatus);
-    }
-
-    return filtered;
-  },
-}));
+    persistConfig
+  )
+);
 
 export default useStore;
